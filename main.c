@@ -100,6 +100,15 @@ int main()
       assert(cmp(res, exp, len));
       free(res);
    }
+   {
+      uint8_t test[] = { 4, 3, 2, 1 };
+      size_t len = sizeof(test) / sizeof(uint8_t);
+
+      uint8_t exp[] = { 1, 2, 3, 4 };
+      uint8_t* res = mergeSort( test, len );
+      assert(cmp(res, exp, len));
+      free(res);
+   }
 
 //   {
 //      uint8_t test[] = { 4, 3, 2, 1 };

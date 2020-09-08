@@ -19,15 +19,14 @@ lr      .req x30
 */
 pDatax  .req x0
 dLengx  .req x1
-dMidpx  .req x2
-pMidpx  .req x3
+pMidpx  .req x2
+dMidpx  .req x3
 
 mergeSort:
   str   lr, [sp, -16]!            // save lr on stack
   cmp   dLengx, 1                 // base case len==1
   beq   done
-  lsr   dMidpx, dLengx, 2         // divide length by 2 to get mid idx
-  add   dMidpx, dMidpx, 1         // add 1 to midpoint
+  lsr   dMidpx, dLengx, 1         // divide length by 2 to get mid idx
   add   pMidpx, pDatax, dMidpx    // calculate ptr of middle of arr
   stp   pDatax, dMidpx, [sp, -16]!// store ptr to start of arr and mid idx len on stack
   sub   dLengx, dLengx, dMidpx    // calculate remaining length of arr
@@ -35,7 +34,7 @@ mergeSort:
   // left side arr ptr is already in x0 (pDatax)
   mov   x1, dMidpx                // place new length (length/2) in x1, recurse
   bl    mergeSort                 // recurse on first half of array
-  ldp   x0, x1, [sp, 16]          // get back the address and legth of the mid array
+  ldp   x0, x1, [sp, 0]          // get back the address and legth of the mid array
   bl    mergeSort                 // recurse of second half of array
   ldp   pMidpx, dLengx, [sp], 16  // restore ptr to mid of arr and remaining len
   ldp   pDatax, dMidpx, [sp], 16  // store ptr to start of arr and mid idx len on stack
@@ -44,8 +43,8 @@ mergeSort:
   mov   x2, pMidpx
   mov   x3, dLengx
   bl    merge
-  ldr   lr, [sp], 16
 done:
+  ldr   lr, [sp], 16
   ret
 
 
