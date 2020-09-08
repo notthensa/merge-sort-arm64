@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <stdbool.h>
 
 extern uint8_t* mergeSort( uint8_t* buf, size_t len );
@@ -20,6 +21,7 @@ int main()
       uint8_t exp[] = { 1, 1 };
       uint8_t* res = merge( m, mlen, n, nlen );
       assert(cmp(res, exp, (sizeof(exp) / sizeof(uint8_t))));
+      free(res);
    }
    {
       uint8_t m[] = { 1 };
@@ -30,6 +32,7 @@ int main()
       uint8_t exp[] = { 1, 2 };
       uint8_t* res = merge( m, mlen, n, nlen );
       assert(cmp(res, exp, (sizeof(exp) / sizeof(uint8_t))));
+      free(res);
    }
    {
       uint8_t m[] = { 2 };
@@ -40,6 +43,7 @@ int main()
       uint8_t exp[] = { 1, 2 };
       uint8_t* res = merge( m, mlen, n, nlen );
       assert(cmp(res, exp, (sizeof(exp) / sizeof(uint8_t))));
+      free(res);
    }
    {
       uint8_t m[] = { 2, 4 };
@@ -50,6 +54,7 @@ int main()
       uint8_t exp[] = { 1, 2, 3, 4 };
       uint8_t* res = merge( m, mlen, n, nlen );
       assert(cmp(res, exp, (sizeof(exp) / sizeof(uint8_t))));
+      free(res);
    }
    {
       uint8_t m[] = { 2 };
@@ -60,6 +65,7 @@ int main()
       uint8_t exp[] = { 1, 2, 3 };
       uint8_t* res = merge( m, mlen, n, nlen );
       assert(cmp(res, exp, (sizeof(exp) / sizeof(uint8_t))));
+      free(res);
    }
    {
       uint8_t m[] = { 2, 4, 6, 8, 10, 12, 14, 16, 18, 20 };
@@ -71,6 +77,28 @@ int main()
          11, 12, 13, 14, 15, 16, 17, 18, 19, 20 };
       uint8_t* res = merge( m, mlen, n, nlen );
       assert(cmp(res, exp, (sizeof(exp) / sizeof(uint8_t))));
+      free(res);
+   }
+   {
+      uint8_t m[] = { 1 };
+      uint8_t n[] = { 2, 3, 4, 5, 6, 7 };
+      size_t mlen = sizeof(m) / sizeof(uint8_t);
+      size_t nlen = sizeof(n) / sizeof(uint8_t);
+
+      uint8_t exp[] = { 1, 2, 3, 4, 5, 6, 7 };
+      uint8_t* res = merge( m, mlen, n, nlen );
+      assert(cmp(res, exp, (sizeof(exp) / sizeof(uint8_t))));
+      free(res);
+   }
+   // merge sort tests
+   {
+      uint8_t test[] = { 2, 1 };
+      size_t len = sizeof(test) / sizeof(uint8_t);
+
+      uint8_t exp[] = { 1, 2 };
+      uint8_t* res = mergeSort( test, len );
+      assert(cmp(res, exp, len));
+      free(res);
    }
 
 //   {

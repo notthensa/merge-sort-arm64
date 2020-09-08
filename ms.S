@@ -10,7 +10,8 @@ lr      .req x30
   @brief
   Weird and pointless implementation of merge sort
   that stupidly allocates memory and passes allocated
-  pointer to caller
+  pointer to caller and hopes they remember to free
+	the pointer
 
   @param[in] pData pointer to data stored in x0
   @param[in] dLeng size of data in bytes stored in pData
@@ -18,11 +19,37 @@ lr      .req x30
 */
 pDatax  .req x0
 dLengx  .req x1
-pDEndx  .req x2
+dMidpx  .req x2
+pMidpx  .req x3
 
 mergeSort:
-   stp  x0, x1, [sp, -16]!    // push arguments to stack
-split:
+  str   lr, [sp, -16]!            // save lr on stack
+  cmp   dLengx, 1                 // base case len==1
+  beq   done
+  lsr   dMidpx, dLengx, 2         // divide length by 2 to get mid idx
+  add   dMidpx, dMidpx, 1         // add 1 to midpoint
+  add   pMidpx, pDatax, dMidpx    // calculate ptr of middle of arr
+  stp   pDatax, dMidpx, [sp, -16]!// store ptr to start of arr and mid idx len on stack
+  sub   dLengx, dLengx, dMidpx    // calculate remaining length of arr
+  stp   pMidpx, dLengx, [sp, -16]!// store ptr to mid of arr and remaining len on stack
+  // left side arr ptr is already in x0 (pDatax)
+  mov   x1, dMidpx                // place new length (length/2) in x1, recurse
+  bl    mergeSort                 // recurse on first half of array
+  ldp   x0, x1, [sp, 16]          // get back the address and legth of the mid array
+  bl    mergeSort                 // recurse of second half of array
+  ldp   pMidpx, dLengx, [sp], 16  // restore ptr to mid of arr and remaining len
+  ldp   pDatax, dMidpx, [sp], 16  // store ptr to start of arr and mid idx len on stack
+  mov   x0, pDatax
+  mov   x1, dMidpx
+  mov   x2, pMidpx
+  mov   x3, dLengx
+  bl    merge
+  ldr   lr, [sp], 16
+done:
+  ret
+
+
+
 
 
 /*
@@ -72,12 +99,12 @@ calcEndPtrs:
   add   pEndNx, pArrNx, dSizNx    // calculate end ptr of pArrNx, store where dSizeNx was
   add   pEndRx, pArrRx, dSizRx    // calculate end ptr of pArrRx, store where dSizeRx was
 mergeLoop:
+checkEndOfArr:
   cmp   pEndMx, pArrMx            // check we're not at beginning of array
   beq   flushN
-
   cmp   pEndNx, pArrNx            // check we're not at beginning of array
   beq   flushM
-
+compareBytes:
   ldrb  cCurMw, [pEndMx, -1]!     // decrement end of M and load byte
   ldrb  cCurNw, [pEndNx, -1]!     // decrement end of N and load byte
   cmp   cCurMw, cCurNw            // compare loaded bytes
@@ -90,22 +117,18 @@ resultNByte:
   strb  cCurNw, [pEndRx, -1]!     // store M byte at end of result arr
   add   pEndMx, pEndMx, 1         // restore end of M since it wasn't chosen
   b     mergeLoop    
-  
-loopEnd:
 flushM:
   cmp   pEndMx, pArrMx
   beq   finish
   ldrb  cCurMw, [pEndMx, -1]!     // decrement end of M and load byte
   strb  cCurMw, [pEndRx, -1]!     // store M byte at end of result arr
   b     flushM
-
 flushN:
   cmp   pEndNx, pArrNx
   beq   finish
   ldrb  cCurNw, [pEndNx, -1]!     // decrement end of N and load byte
   strb  cCurNw, [pEndRx, -1]!     // store M byte at end of result arr
   b     flushN
-
 finish:
   mov   x0, pArrRx
   ret
