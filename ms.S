@@ -3,8 +3,18 @@
 .text
 .global mergeSort
 .global merge
+.global retard
 
 lr      .req x30
+
+// param int
+// param int
+// param int
+retard:
+  mov x1, x0
+  mov x2, x1
+  mov x3, x2
+  ret
 
 /*
   @brief
@@ -13,63 +23,106 @@ lr      .req x30
   pointer to caller and hopes they remember to free
 	the pointer
 
-  @param[in] pData pointer to data stored in x0
-  @param[in] dLeng size of data in bytes stored in pData
+  @param[in]  pData pointer to data stored in x0
+  @param[in]  dLeng size of data in bytes stored in pData
+	@param[out] pArrRx pointer to storage for result, 64 bit
   @return ptr to sorted array, should be free()'d later
 */
 pDatax  .req x0
 dLengx  .req x1
-pMidpx  .req x2
-dMidpx  .req x3
+pMemRx  .req x2
 
+dTempx  .req x3
+dMiddx  .req x4
+pMiddx  .req x5
+pMidAx  .req x6
+dRemLx  .req x7
+
+// ptr pRReturnMem
+// ptr pLReturnMem
 mergeSort:
-  str   lr, [sp, -16]!            // save lr on stack
-  cmp   dLengx, 1                 // base case len==1
-  beq   done
-  lsr   dMidpx, dLengx, 1         // divide length by 2 to get mid idx
-  add   pMidpx, pDatax, dMidpx    // calculate ptr of middle of arr
-  stp   pDatax, dMidpx, [sp, -16]!// store ptr to start of arr and mid idx len on stack
-  sub   dLengx, dLengx, dMidpx    // calculate remaining length of arr
-  stp   pMidpx, dLengx, [sp, -16]!// store ptr to mid of arr and remaining len on stack
-  // left side arr ptr is already in x0 (pDatax)
-  mov   x1, dMidpx                // place new length (length/2) in x1, recurse
-  bl    mergeSort                 // recurse on first half of array
-  ldp   x0, x1, [sp, 0]          // get back the address and legth of the mid array
-  bl    mergeSort                 // recurse of second half of array
-  ldp   pMidpx, dLengx, [sp], 16  // restore ptr to mid of arr and remaining len
-  ldp   pDatax, dMidpx, [sp], 16  // store ptr to start of arr and mid idx len on stack
-  mov   x0, pDatax
-  mov   x1, dMidpx
-  mov   x2, pMidpx
-  mov   x3, dLengx
-  bl    merge
-done:
-  ldr   lr, [sp], 16
+_baseCase:
+  cmp   dLengx, 1                 // base case len==0
+  bne   _allocMem
+  // copy input to result
+  ldrb   w3, [pDatax, 0]
+  strb   w3, [pMemRx, 0]
+_done:
   ret
+_allocMem:
+  // preparing to calculate temporary array on stack, need to consider
+  // alignment for sp. Will allocate number of bytes with space for
+  // at most another 16 bytes for alignment
+  lsr   dTempx, dLengx, 0x4         // divide length by 16 for arr size
+  add   dTempx, dTempx, 0x1         // add one in case <16 bytes in length
+  lsl   dTempx, dTempx, 0x4         // multiply by 4 again to get aligned number of bytes to alloc
+  sub   sp, sp, dTempx              // allocate temp array[dLeng]
+  str   dTempx, [sp, -0x10]!        // store size of above array
+  // sp now at start of result array
+  // the above result array will be split in 2 and used as storage for recursive L+R calls to merge()
 
+_prep:
+  lsr   dMiddx, dLengx, 0x1         // divide length / 2 for midpoint
+  sub   dRemLx, dLengx, dMiddx      // length - midpoint = remaining length
+  add   dTempx, sp, 0x10            // address of start of above array
+  add   pMiddx, pDatax, dMiddx      // calculate pointer to middle of input
+  add   pMidAx, dTempx, dMiddx      // calculate pointer to middle of allocated result array
+  stp   dTempx, pMidAx, [sp, -0x10]!// store pointer to beginning and middle of result array
+  stp   pDatax, pMiddx, [sp, -0x10]!// store pData and middle of pData
+  stp   dRemLx, dMiddx, [sp, -0x10]!// store remaining length and length/2 (midpoint)
+  stp   pMemRx, lr, [sp, -0x10]!    // store pointer to passed mem storage loc and link reg
+_recurseL:
+  // calculate middle of array, and recurse with first half of pMemR*
+  ldr   x0, [sp, 0x20]              // pointer to start of input
+  ldr   x1, [sp, 0x18]              // length till middle of input
+  ldr   x2, [sp, 0x30]              // pointer to start of above allocated result array
+  bl    mergeSort
 
+_recurseR:
+  ldr   x0, [sp, 0x28]              // pointer to middle of input
+  ldr   x1, [sp, 0x10]              // remaining length from middle to end
+  ldr   x2, [sp, 0x38]              // pointer to middle of above allocated result array
+  bl    mergeSort
+  ldr   lr, [sp, 0x8]               // restore lr
 
+  // results should now be in result array
+_merge:
+  ldr   x0, [sp, 0x30]              // pointer to first half of result array
+  ldr   x1, [sp, 0x18]              // length to middle
+  ldr   x2, [sp, 0x38]              // pointer to second half of result array
+  ldr   x3, [sp, 0x10]              // remaining length
+  ldr   x4, [sp, 0]                 // pointer to result mem passed
+  bl    merge
+  ldr   lr, [sp, 0x8]               // restore lr
 
+_undoStack:
+  ldp   pMemRx, lr, [sp], 16        // restore args and lr
+  add   sp, sp, 0x30                // free variables
+  ldr   dTempx, [sp], 16            // restore size of allocated array
+  add   sp, sp, dTempx              // unallocate array
+  b     _done
 
 /*
   @brief
 
   Given two byte arrays and their respective lengths,
-  compare elements of the arrays and add the sorted
+  compare elements of the arrays and merge the sorted
   results to a resulting array.
 
-  @param[in] pArrMx pointer to first array, 64 bit
-  @param[in] dSizMx size of first array, 64 bit
-  @param[in] pArrNx pointer to second array, 64 bit
-  @param[in] dSizNx size of second array, 64 bit
+  @param[in]  pArrMx pointer to first array, 64 bit
+  @param[in]  dSizMx size of first array, 64 bit
+  @param[in]  pArrNx pointer to second array, 64 bit
+  @param[in]  dSizNx size of second array, 64 bit
+	@param[out] pArrRx pointer to storage for result, 64 bit
 
-  @return ptr to the resulting array
+  @return none
 
 */
 pArrMx  .req x0
 dSizMx  .req x1
 pArrNx  .req x2
 dSizNx  .req x3
+pArrRx  .req x4
 
 pEndMx  .req x1
 pEndNx  .req x3
@@ -82,18 +135,11 @@ cCurMw  .req w6
 cCurNw  .req w7
 
 merge:
-allocResult:
   stp   pArrMx, dSizMx, [sp, -16]!// save args on stack
   stp   pArrNx, dSizNx, [sp, -16]!
-  add   dSizRx, dSizMx, dSizNx    // calculate size to malloc
-  stp   dSizRx, lr, [sp, -16]!    // save size and lr on stack
-  mov   x0, dSizRx
-  bl    malloc                    // call malloc, creating memory for resulting array
-  ldp   dSizRx, lr, [sp], 16      // restore result size and lr
-  mov   pArrRx, x0                // save return from malloc to pArrRx
-  ldp   pArrNx, dSizNx, [sp], 16  // restore args
-  ldp   pArrMx, dSizMx, [sp], 16
+  stp   pArrRx, lr, [sp, -16]!    // lr on stack
 calcEndPtrs:
+  add   dSizRx, dSizMx, dSizNx    // calculate size for result
   add   pEndMx, pArrMx, dSizMx    // calculate end ptr of pArrMx, store where dSizeMx was
   add   pEndNx, pArrNx, dSizNx    // calculate end ptr of pArrNx, store where dSizeNx was
   add   pEndRx, pArrRx, dSizRx    // calculate end ptr of pArrRx, store where dSizeRx was
@@ -129,5 +175,7 @@ flushN:
   strb  cCurNw, [pEndRx, -1]!     // store M byte at end of result arr
   b     flushN
 finish:
-  mov   x0, pArrRx
+  ldp   pArrRx, lr, [sp], 16      // restore result size and lr
+  ldp   pArrNx, dSizNx, [sp], 16  // restore args
+  ldp   pArrMx, dSizMx, [sp], 16
   ret
