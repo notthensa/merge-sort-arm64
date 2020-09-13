@@ -3,18 +3,9 @@
 .text
 .global mergeSort
 .global merge
-.global retard
 
 lr      .req x30
 
-// param int
-// param int
-// param int
-retard:
-  mov x1, x0
-  mov x2, x1
-  mov x3, x2
-  ret
 
 /*
   @brief
